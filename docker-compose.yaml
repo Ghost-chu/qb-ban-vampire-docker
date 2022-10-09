@@ -1,0 +1,19 @@
+version: "3.9"
+services:
+  qbbanvampire:
+    image: "ghostchu/qb-ban-vampire-docker:latest"
+    restart: always
+    container_name: "qb-ban-vampire-docker"
+    environment:
+      API_PREFIX: "http://127.0.0.1:8080"
+      API_USERNAME: ""
+      API_PASSWORD: ""
+      BASICAUTH_ENABLED: "false"
+      BASICAUTH_USERNAME: ""
+      BASICAUTH_PASSWORD: ""
+      INTERVAL_SECONDS: "5"
+      DEFAULT_BAN_SECONDS: "3600"
+      BAN_XUNLEI: "true"
+      BAN_PLAYER: "true"
+      BAN_OTHER: "false"
+      BAN_WITHOUT_RATIO_CHECK: "true"
