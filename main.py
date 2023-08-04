@@ -134,7 +134,8 @@ class VampireHunter:
             if now > value['expired']:
                 del self.__banned_ips[key]
                 continue
-            ips += key + '\n'
+            ip = key.strip('[]')  # 去除IPV6地址字符串中的大括号
+            ips += ip + '\n'
         self.SESSION.post(
             f'{self.API_FULL}/app/setPreferences',
             auth=self.get_basicauth(),
