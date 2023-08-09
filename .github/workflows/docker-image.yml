@@ -26,10 +26,18 @@ jobs:
         with:
           images: ghostchu/qb-ban-vampire-docker
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (Tagged)
         uses: docker/build-push-action@v2 # docker build & push
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Build and push Docker image (Latest)
+        uses: docker/build-push-action@v2 # docker build & push
+        with:
+          context: .
+          push: true
+          tags: latest
+          labels: ${{ steps.meta.outputs.labels }}
+
