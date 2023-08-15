@@ -7,7 +7,7 @@
 https://hub.docker.com/r/ghostchu/qb-ban-vampire-docker
 
 ```
-docker pull ghostchu/qb-ban-vampire-docker:latest
+docker pull ghostchu/qb-ban-vampire-docker:1.1
 ```
 
 ## 环境变量 
