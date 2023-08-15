@@ -20,4 +20,5 @@ RUN mkdir /app
 COPY main.py /app/
 COPY docker-entrypoint.sh /app/
 WORKDIR /app
+RUN chmod +x /app/docker-entrypoint.sh
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
