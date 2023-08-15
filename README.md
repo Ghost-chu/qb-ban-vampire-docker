@@ -17,7 +17,7 @@ docker pull ghostchu/qb-ban-vampire-docker:1.1
 * API_PASSWORD 填写 QB 密码
 * BASICAUTH_ENABLED 如果前面套了一层基础验证（浏览器弹窗输入用户名密码），则设为 true
 * BASICAUTH_USERNAME 输入弹窗中要输入的用户名
-* BASICAUTH_PASSWORD 输入弹窗中药输入的密码
+* BASICAUTH_PASSWORD 输入弹窗中要输入的密码
 * INTERVAL_SECONDS 检测间隔，太长封禁Peer会有较大延迟，太小会导致 QB WEBUI 无响应，推荐值为 15
 * DEFAULT_BAN_SECONDS 封禁时间长度，默认 3600，单位为秒
 * BAN_XUNLEI 是否封禁迅雷，默认 true
