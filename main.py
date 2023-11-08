@@ -211,6 +211,7 @@ class VampireHunter:
             except:
                 try:
                     self.execute_login() # Re-login, script may stop working after long time execute
+                    self.do_once_banip()
                 except:
                     logging.info(f'An error throwing, is WebUI request timed out?')
             finally:
