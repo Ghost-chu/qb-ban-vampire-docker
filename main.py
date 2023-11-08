@@ -72,6 +72,7 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+
 class VampireHunter:
     SESSION = requests.Session()
     # WebUI 地址
@@ -98,14 +99,17 @@ class VampireHunter:
     __banned_ips = {}
     logging.basicConfig(level=logging.INFO)
 
-    def __init__(self):
-        self.login_status = self.SESSION.post(
+    def execute_login(self):
+        return self.SESSION.post(
             f'{self.API_FULL}/auth/login',
             data={
                 'username': self.API_USERNAME,
                 'password': self.API_PASSWORD
             }
-        ).text
+        ).text;
+
+    def __init__(self):
+        self.login_status = self.execute_login()
         logging.warning(f'Login status: {self.login_status}')
 
     def get_basicauth(self):
@@ -205,7 +209,10 @@ class VampireHunter:
             try:
                 self.do_once_banip()
             except:
-                logging.info(f'An error throwing, is WebUI request timed out?')
+                try:
+                    self.execute_login() # Re-login, script may stop working after long time execute
+                except:
+                    logging.info(f'An error throwing, is WebUI request timed out?')
             finally:
                 time.sleep(self.INTERVAL_SECONDS)
 
