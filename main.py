@@ -222,14 +222,14 @@ class VampireHunter:
     def start(self):
         try:
             login_status = self.execute_login()
-        except BaseException as loginException:
+        except Exception as loginException:
             login_status = False
             logging.error(f'Unexpected exception was throw during attempting login: {repr(loginException)}')
 
         while login_status:
             try:
                 self.do_once_banip()
-            except BaseException as banIPException:
+            except Exception as banIPException:
                 logging.error(f'Unexpected exception was throw during attempting ban IP: {repr(banIPException)}')
 
                 try:
@@ -238,7 +238,7 @@ class VampireHunter:
                     
                     if not login_status:
                         logging.warning('Failed to re-login, please check your login credentials.')
-                except BaseException as reLoginException:
+                except Exception as reLoginException:
                     login_status = False
                     logging.error(f'Unexpected exception was throw during attempting re-login: {repr(reLoginException)}')
 
