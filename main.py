@@ -9,6 +9,7 @@ import re
 import json
 import time
 import logging
+from datetime import datetime
 
 REGX_XUNLEI = re.compile('''
 ^(?:
@@ -74,9 +75,10 @@ def str2bool(v):
 
 
 class VampireHunter:
-    SESSION = requests.Session()
     # WebUI 地址
     API_PREFIX = os.getenv('API_PREFIX', 'http://127.0.0.1:8080')
+    # 是否验证Https证书有效性，如果你使用HTTPS自签名证书或通过局域网IP而非证书相关联的域名访问，请关闭此选项
+    API_VERIFY_HTTPS_CERT = str2bool(os.getenv('API_VERIFY_HTTPS_CERT', 'true'))
     API_FULL = f'{API_PREFIX}/api/v2'
     # WebUI 用户名密码
     API_USERNAME = os.getenv('API_USERNAME', '')
@@ -96,6 +98,9 @@ class VampireHunter:
     # 识别到客户端直接屏蔽不管是否存在上传
     BAN_WITHOUT_RATIO_CHECK = str2bool(os.getenv('BAN_WITHOUT_RATIO_CHECK', 'true'))
 
+    SESSION = requests.Session()
+    SESSION.verify = API_VERIFY_HTTPS_CERT
+
     __banned_ips = {}
     logging.basicConfig(level=logging.INFO)
 
@@ -106,7 +111,7 @@ class VampireHunter:
                 'username': self.API_USERNAME,
                 'password': self.API_PASSWORD
             }
-        ).text;
+        ).text
 
     def __init__(self):
         self.login_status = self.execute_login()
@@ -178,8 +183,11 @@ class VampireHunter:
             # 分享率及下载进度异常
             if not target_client:
                 return False
-            logging.info(f'Detected target client: {info["client"]}')
-            if info['progress'] == 0 and info['uploaded'] > 1000000:
+
+            logging.info(f'Detected target client: {info["client"]}, progress: {info["progress"]}, uploaded: {info["uploaded"]}')
+
+            # 分享率为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
+            if info['progress'] == 0 and info['uploaded'] > 1048576:
                 return True
 
         def filter_ip(peers, now):
@@ -193,29 +201,33 @@ class VampireHunter:
                     }
 
         torrents = self.get_torrents()
-        now = time.time()
-        logging.info(f'Now: {now} All torrents: {len(torrents)}')
+        nowSeconds = time.time()
+        nowDescription = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        logging.info(f'Now: {nowDescription}, all torrents: {len(torrents)}')
+
         for torrent in torrents:
             peers = self.get_peers(torrent['hash'])
             # logging.info(f'Peers: {len(peers)}\tTorrent: {torrent["name"]}')
-            filter_ip(peers, now)
+            filter_ip(peers, nowSeconds)
+
         self.sumbit_banned_ips()
 
     def start(self):
         if 'Fails' in self.login_status:
             logging.warning('Please check login credentials.')
-            return
-        while True:
-            try:
-                self.do_once_banip()
-            except:
+        else:
+            while True:
                 try:
-                    self.execute_login() # Re-login, script may stop working after long time execute
                     self.do_once_banip()
                 except:
-                    logging.info(f'An error throwing, is WebUI request timed out?')
-            finally:
-                time.sleep(self.INTERVAL_SECONDS)
+                    try:
+                        self.execute_login() # Re-login, script may stop working after long time execute
+                        self.do_once_banip()
+                    except:
+                        logging.info(f'An error throwing, is WebUI request timed out?')
+                finally:
+                    time.sleep(self.INTERVAL_SECONDS)
 
 
 if __name__ == '__main__':

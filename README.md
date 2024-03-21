@@ -13,6 +13,7 @@ docker pull ghostchu/qb-ban-vampire-docker:v1.1.2
 ## 环境变量 
 
 * API_PREFIX 填写 QB 地址如 http://192.168.0.105:8085
+* API_VERIFY_HTTPS_CERT 如果你使用HTTPS自签名证书或通过局域网IP而非证书相关联的域名访问，则设置为 false 以跳过证书检查
 * API_USERNAME 填写 QB 用户名
 * API_PASSWORD 填写 QB 密码
 * BASICAUTH_ENABLED 如果前面套了一层基础验证（浏览器弹窗输入用户名密码），则设为 true
@@ -23,4 +24,4 @@ docker pull ghostchu/qb-ban-vampire-docker:v1.1.2
 * BAN_XUNLEI 是否封禁迅雷，默认 true
 * BAN_PLAYER 是否封禁各类BT播放器，默认 true
 * BAN_OTHER 是否封禁其他未知 BT 客户端
-* BAN_WITHOUT_RADIO_CHECK 小部分版本迅雷客户端下载 BT 资源时会正常上传，此选项控制封禁BAN掉这类迅雷客户端之前是否检查其分享率
+* BAN_WITHOUT_RADIO_CHECK 小部分版本迅雷客户端下载 BT 资源时会正常上传，此选项控制封禁BAN掉这类迅雷客户端之前是否检查其分享率。此选项设置为 true 时，不检查分享率直接封禁BAN掉客户端；设置为 false 时，封禁BAN掉客户端前先查验其分享率
