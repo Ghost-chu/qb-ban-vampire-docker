@@ -1,4 +1,4 @@
-FROM python:alpine3.16
+FROM python:3.9.19-alpine3.19
 
 LABEL MAINTAINER="https://github.com/Ghost-chu/qb-ban-vampire-docker"
 

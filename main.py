@@ -105,17 +105,17 @@ class VampireHunter:
     logging.basicConfig(level=logging.INFO)
 
     def execute_login(self):
-        return self.SESSION.post(
+        login_response = self.SESSION.post(
             f'{self.API_FULL}/auth/login',
             data={
                 'username': self.API_USERNAME,
                 'password': self.API_PASSWORD
             }
-        ).text
+        )
 
-    def __init__(self):
-        self.login_status = self.execute_login()
-        logging.warning(f'Login status: {self.login_status}')
+        logging.info(f'Login status: {login_response.text}')
+
+        return 'Ok' in login_response.text
 
     def get_basicauth(self):
         if self.BASICAUTH_ENABLED:
@@ -139,12 +139,14 @@ class VampireHunter:
         ips = ''
         now = time.time()
         tmp_banned_ips = self.__banned_ips.copy()
+
         for key, value in tmp_banned_ips.items():
-            if now > value['expired']:
+            if now > value['expired_on']:
                 del self.__banned_ips[key]
-                continue
-            ip = key.strip('[]')  # 去除IPV6地址字符串中的大括号
-            ips += ip + '\n'
+            else:
+                ip = key.strip('[]')  # 去除IPV6地址字符串中的大括号
+                ips += ip + '\n'
+        
         self.SESSION.post(
             f'{self.API_FULL}/app/setPreferences',
             auth=self.get_basicauth(),
@@ -156,49 +158,53 @@ class VampireHunter:
         )
 
     def do_once_banip(self):
-
         def parse_ip(ip_port):
             port_path = ip_port.rfind(':')
-            ip = ''
+
             if ip_port.startswith('::ffff:'):
-                ip = ip_port[7:port_path]
+                return ip_port[7:port_path]
             else:
-                ip = ip_port[:port_path]
-            return ip
+                return ip_port[:port_path]
 
         def check_peer(info):
             target_client = False
+
             # 屏蔽迅雷
             if self.BAN_XUNLEI and REGX_XUNLEI.search(info['client']):
                 target_client = True
-            # 屏蔽 P2P 播放器
-            if self.BAN_PLAYER and REGX_PLAYER.search(info['client']):
-                target_client = True
-            # 屏蔽野鸡客户端
-            if self.BAN_OTHERS and REGX_OTHERS.search(info['client']):
-                target_client = True
+            else:
+                # 屏蔽 P2P 播放器
+                if self.BAN_PLAYER and REGX_PLAYER.search(info['client']):
+                    target_client = True
+                else:
+                    # 屏蔽野鸡客户端
+                    if self.BAN_OTHERS and REGX_OTHERS.search(info['client']):
+                        target_client = True
+
             # 不检查分享率及下载进度直接屏蔽
             if self.BAN_WITHOUT_RATIO_CHECK:
                 return target_client
+            
             # 分享率及下载进度异常
-            if not target_client:
-                return False
+            if target_client:
+                logging.info(f'Detected target client: {info["client"]}, progress: {info["progress"]}, uploaded: {info["uploaded"]}')
 
-            logging.info(f'Detected target client: {info["client"]}, progress: {info["progress"]}, uploaded: {info["uploaded"]}')
-
-            # 分享率为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
-            if info['progress'] == 0 and info['uploaded'] > 1048576:
-                return True
+                # 分享率为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
+                if info['progress'] == 0 and info['uploaded'] > 1048576:
+                    return True
+                
+            return False
 
         def filter_ip(peers, now):
             for ip_port, info in peers['peers'].items():
                 if check_peer(info):
                     ip = parse_ip(ip_port)
-                    logging.warning(f'Banned: {ip}, UA: {info["client"]}')
                     self.__banned_ips[ip] = {
                         'ban_time': now,
-                        'expired': now + self.DEFAULT_BAN_SECONDS
+                        'expired_on': now + self.DEFAULT_BAN_SECONDS
                     }
+                    
+                    logging.warning(f'IP Banned: {ip}, UA: {info["client"]}')
 
         torrents = self.get_torrents()
         nowSeconds = time.time()
@@ -214,20 +220,34 @@ class VampireHunter:
         self.sumbit_banned_ips()
 
     def start(self):
-        if 'Fails' in self.login_status:
-            logging.warning('Please check login credentials.')
-        else:
-            while True:
+        try:
+            login_status = self.execute_login()
+        except BaseException as loginException:
+            login_status = False
+            logging.error(f'Unexpected exception was throw during attempting login: {repr(loginException)}')
+
+        while login_status:
+            try:
+                self.do_once_banip()
+            except BaseException as banIPException:
+                logging.error(f'Unexpected exception was throw during attempting ban IP: {repr(banIPException)}')
+
                 try:
-                    self.do_once_banip()
-                except:
-                    try:
-                        self.execute_login() # Re-login, script may stop working after long time execute
-                        self.do_once_banip()
-                    except:
-                        logging.info(f'An error throwing, is WebUI request timed out?')
-                finally:
-                    time.sleep(self.INTERVAL_SECONDS)
+                    # Re-login, script may stop working after long time execute
+                    login_status = self.execute_login()
+                    
+                    if not login_status:
+                        logging.warning('Failed to re-login, please check your login credentials.')
+                except BaseException as reLoginException:
+                    login_status = False
+                    logging.error(f'Unexpected exception was throw during attempting re-login: {repr(reLoginException)}')
+
+                continue
+
+            time.sleep(self.INTERVAL_SECONDS)
+
+        logging.error('Unable retrieve the authorization from API. Please check login credentials or any configuration issues.')
+
 
 
 if __name__ == '__main__':
