@@ -8,6 +8,7 @@ import requests
 import re
 import json
 import time
+import pytz
 import logging
 import urllib3
 from datetime import datetime
@@ -90,6 +91,8 @@ class VampireHunter:
     BASICAUTH_PASSWORD = os.getenv('BASICAUTH_PASSWORD', '')
     # 检测间隔
     INTERVAL_SECONDS = int(os.getenv('INTERVAL_SECONDS', 5))
+    # 默认时区
+    DEFAULT_TIMEZONE = os.getenv('DEFAULT_TIMEZONE', 'Asia/Shanghai')
     # 屏蔽时间
     DEFAULT_BAN_SECONDS = int(os.getenv('DEFAULT_BAN_SECONDS', 3600))
     # 屏蔽开关
@@ -215,7 +218,7 @@ class VampireHunter:
 
         torrents = self.get_torrents()
         nowSeconds = time.time()
-        nowDescription = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        nowDescription = datetime.now(pytz.timezone(self.DEFAULT_TIMEZONE)).strftime('%Y-%m-%dT%H:%M:%S%z')
 
         logging.info(f'Now: {nowDescription}, all torrents: {len(torrents)}')
 

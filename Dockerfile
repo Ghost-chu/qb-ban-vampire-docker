@@ -10,13 +10,14 @@ ENV BASICAUTH_ENABLED="false"
 ENV BASICAUTH_USERNAME=""
 ENV BASICAUTH_PASSWORD=""
 ENV INTERVAL_SECONDS="5"
+ENV DEFAULT_TIMEZONE="Asia/Shanghai"
 ENV DEFAULT_BAN_SECONDS="3600"
 ENV BAN_XUNLEI="true"
 ENV BAN_PLAYER="true"
 ENV BAN_OTHER="false"
 ENV BAN_WITHOUT_RATIO_CHECK="true"
 
-RUN pip install requests
+RUN pip install requests pytz
 RUN mkdir /app
 COPY main.py /app/
 COPY docker-entrypoint.sh /app/

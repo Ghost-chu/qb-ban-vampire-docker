@@ -20,6 +20,7 @@ docker pull ghostchu/qb-ban-vampire-docker:v1.1.2
 * BASICAUTH_USERNAME 输入弹窗中要输入的用户名
 * BASICAUTH_PASSWORD 输入弹窗中要输入的密码
 * INTERVAL_SECONDS 检测间隔，太长封禁Peer会有较大延迟，太小会导致 QB WEBUI 无响应，推荐值为 15
+* DEFAULT_TIMEZONE 显示时间格式化的时区，默认中国标准时间 Asia/Shanghai
 * DEFAULT_BAN_SECONDS 封禁时间长度，默认 3600，单位为秒
 * BAN_XUNLEI 是否封禁迅雷，默认 true
 * BAN_PLAYER 是否封禁各类BT播放器，默认 true
