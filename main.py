@@ -9,6 +9,7 @@ import re
 import json
 import time
 import logging
+import urllib3
 from datetime import datetime
 
 REGX_XUNLEI = re.compile('''
@@ -98,11 +99,17 @@ class VampireHunter:
     # 识别到客户端直接屏蔽不管是否存在上传
     BAN_WITHOUT_RATIO_CHECK = str2bool(os.getenv('BAN_WITHOUT_RATIO_CHECK', 'true'))
 
+    BANNED_IPS = {}
+
     SESSION = requests.Session()
     SESSION.verify = API_VERIFY_HTTPS_CERT
 
-    __banned_ips = {}
-    logging.basicConfig(level=logging.INFO)
+    # 禁用 HTTPS 证书验证警告
+    if not API_VERIFY_HTTPS_CERT:
+        urllib3.disable_warnings()
+    
+    def __init__(self):
+        logging.basicConfig(level=logging.INFO)
 
     def execute_login(self):
         login_response = self.SESSION.post(
@@ -138,11 +145,11 @@ class VampireHunter:
     def sumbit_banned_ips(self):
         ips = ''
         now = time.time()
-        tmp_banned_ips = self.__banned_ips.copy()
+        tmp_banned_ips = self.BANNED_IPS.copy()
 
         for key, value in tmp_banned_ips.items():
             if now > value['expired_on']:
-                del self.__banned_ips[key]
+                del self.BANNED_IPS[key]
             else:
                 ip = key.strip('[]')  # 去除IPV6地址字符串中的大括号
                 ips += ip + '\n'
@@ -199,7 +206,7 @@ class VampireHunter:
             for ip_port, info in peers['peers'].items():
                 if check_peer(info):
                     ip = parse_ip(ip_port)
-                    self.__banned_ips[ip] = {
+                    self.BANNED_IPS[ip] = {
                         'ban_time': now,
                         'expired_on': now + self.DEFAULT_BAN_SECONDS
                     }
