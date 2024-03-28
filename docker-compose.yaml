@@ -5,7 +5,7 @@ services:
     restart: always
     container_name: "qb-ban-vampire-docker"
     environment:
-      API_PREFIX: "http://127.0.0.1:8080"
+      API_PREFIX: "http://localhost:8080"
       API_VERIFY_HTTPS_CERT: "true"
       API_USERNAME: ""
       API_PASSWORD: ""
@@ -13,6 +13,7 @@ services:
       BASICAUTH_USERNAME: ""
       BASICAUTH_PASSWORD: ""
       INTERVAL_SECONDS: "5"
+      DEFAULT_TIMEZONE: "Asia/Shanghai"
       DEFAULT_BAN_SECONDS: "3600"
       BAN_XUNLEI: "true"
       BAN_PLAYER: "true"
