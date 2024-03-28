@@ -199,7 +199,7 @@ class VampireHunter:
         
         # 分享率及下载进度异常
         if target_client:
-            logging.info(f'Detected target client: {info['client']}, progress: {"%.1f%%" % (info['progress'] * 100)}, downloaded: {self.convert_size(info['downloaded'])}, uploaded: {self.convert_size(info['uploaded'])}')
+            logging.info(f"Detected target client: {info['client']}, progress: {'%.1f%%' % (info['progress'] * 100)}, downloaded: {self.convert_size(info['downloaded'])}, uploaded: {self.convert_size(info['uploaded'])}")
 
             # 分享率为0且下载量为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
             if info['progress'] == 0 and info['downloaded'] == 0 and info['uploaded'] > 1048576:
@@ -211,7 +211,7 @@ class VampireHunter:
         torrentPeers = self.get_peers(torrent['hash'])
         torrentPeersInfo = torrentPeers['peers'].items()
 
-        logging.info(f'Torrent: {torrent['name']}, Peers: {len(torrentPeersInfo)}, Hash: {torrent['hash']}')
+        logging.info(f"Torrent: {torrent['name']}, Peers: {len(torrentPeersInfo)}, Hash: {torrent['hash']}")
 
         for ip_port, info in torrentPeersInfo:
             if self.check_peer(info):
@@ -220,7 +220,7 @@ class VampireHunter:
                     'expired_on': now + self.DEFAULT_BAN_SECONDS
                 }
                 
-                logging.warning(f'IP Banned: {ip_port}, UA: {info['client']}, Country: {info['country']}')
+                logging.warning(f"IP Banned: {ip_port}, UA: {info['client']}, Country: {info['country']}")
 
     def do_once_banip(self):
         torrents = self.get_torrents()
