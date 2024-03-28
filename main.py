@@ -11,6 +11,7 @@ import time
 import pytz
 import logging
 import urllib3
+from itertools import chain
 from datetime import datetime
 
 REGX_XUNLEI = re.compile('''
@@ -102,7 +103,7 @@ class VampireHunter:
     # 识别到客户端直接屏蔽不管是否存在上传
     BAN_WITHOUT_RATIO_CHECK = str2bool(os.getenv('BAN_WITHOUT_RATIO_CHECK', 'true'))
 
-    BANNED_IPS = {}
+    BANNED_IPS_LIST = {}
 
     SESSION = requests.Session()
     SESSION.verify = API_VERIFY_HTTPS_CERT
@@ -114,7 +115,7 @@ class VampireHunter:
     def __init__(self):
         logging.basicConfig(level=logging.INFO)
 
-    def execute_login(self):
+    def request_login(self):
         login_response = self.SESSION.post(
             f'{self.API_FULL}/auth/login',
             data={
@@ -156,24 +157,24 @@ class VampireHunter:
 
         return 'Unknown'
 
-    def sumbit_banned_ips(self):
-        ips = ''
+    def sumbit_banned_ips(self, new_banned_ips):
         now = time.time()
-        tmp_banned_ips = self.BANNED_IPS.copy()
 
-        for key, value in tmp_banned_ips.items():
-            if now > value['expired_on']:
-                del self.BANNED_IPS[key]
-            else:
-                ip = key.strip('[]')  # 去除IPV6地址字符串中的大括号
-                ips += ip + '\n'
+        # 添加需要屏蔽的 IP 列表
+        self.BANNED_IPS_LIST.update(map(lambda ip: (ip, { 'ban_time': now, 'expired_on': now + self.DEFAULT_BAN_SECONDS }), new_banned_ips))
         
+        # 清除超过封锁期限的 IP 列表
+        for ip in filter(lambda ip: now >= self.BANNED_IPS_LIST[ip]['expired_on'], self.BANNED_IPS_LIST.keys()):
+            self.BANNED_IPS_LIST.pop(ip)
+
+        logging.info(f"Banned IPs Submitted: [{', '.join(map(lambda ip: ip.strip('[]'), self.BANNED_IPS_LIST.keys()))}]")
+
         self.SESSION.post(
             f'{self.API_FULL}/app/setPreferences',
             auth=self.get_basicauth(),
             data={
                 'json': json.dumps({
-                    'banned_IPs': ips
+                    'banned_IPs': '\n'.join(map(lambda ip: ip.strip('[]'), self.BANNED_IPS_LIST.keys()))
                 })
             }
         )
@@ -195,62 +196,56 @@ class VampireHunter:
 
         # 不检查分享率及下载进度直接屏蔽
         if self.BAN_WITHOUT_RATIO_CHECK:
-            return target_client
-        
-        # 分享率及下载进度异常
-        if target_client:
-            logging.info(f"Detected - IP: {info['ip']}{info['port']}, UA: {info['client']}")
-            logging.info(f"Peer information - Progress: {'%.1f%%' % (info['progress'] * 100)}, Downloaded: {self.convert_size(info['downloaded'])}, Uploaded: {self.convert_size(info['uploaded'])}")
-
-            # 分享率为0且下载量为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
-            if info['progress'] == 0 and info['downloaded'] == 0 and info['uploaded'] > 1048576:
+            if target_client:
+                logging.warning(f"Peer Banned - IP: {info['ip']}, UA: {info['client']}, Country: {info['country']}")
                 return True
-            
+        else:
+            # 分享率及下载进度异常
+            if target_client:
+                logging.info(f"Detected - IP: {info['ip']}, UA: {info['client']}")
+                logging.info(f"Peer Information - Progress: {'%.1f%%' % (info['progress'] * 100)}, Downloaded: {self.convert_size(info['downloaded'])}, Uploaded: {self.convert_size(info['uploaded'])}")
+
+                # 分享率为0且下载量为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
+                if info['progress'] == 0 and info['downloaded'] == 0 and info['uploaded'] > 1048576:
+                    logging.warning(f"Peer Banned - IP: {info['ip']}, UA: {info['client']}, Country: {info['country']}")
+                    return True
+
+        logging.info(f"Peer Allowed - IP: {info['ip']}, UA: {info['client']}, Country: {info['country']}")
+
         return False
 
-    def filter_torrent(self, torrent, now):
+    def filter_torrent(self, torrent):
         torrentPeers = self.get_peers(torrent['hash'])
-        torrentPeersInfo = torrentPeers['peers'].items()
+        torrentPeersInfo = torrentPeers['peers'].values()
 
         logging.info(f"Torrent: {torrent['name']}, Peers: {len(torrentPeersInfo)}, Hash: {torrent['hash']}")
 
-        for ip_port, info in torrentPeersInfo:
-            if self.check_peer(info):
-                self.BANNED_IPS[info['ip']] = {
-                    'ban_time': now,
-                    'expired_on': now + self.DEFAULT_BAN_SECONDS
-                }
-                
-                logging.warning(f"Banned - IP: {ip_port}, UA: {info['client']}, Country: {info['country']}")
+        return list(map(lambda info: info['ip'], filter(lambda info: self.check_peer(info), torrentPeersInfo)))
 
-    def do_once_banip(self):
+    def collect_and_ban_ip(self):
         torrents = self.get_torrents()
-        nowSeconds = time.time()
         nowDescription = datetime.now(pytz.timezone(self.DEFAULT_TIMEZONE)).strftime('%Y-%m-%dT%H:%M:%S%z')
 
         logging.info(f'Date: {nowDescription}, torrents found: {len(torrents)}')
 
-        for torrent in torrents:
-            self.filter_torrent(torrent, nowSeconds)
-
-        self.sumbit_banned_ips()
+        self.sumbit_banned_ips(set(chain.from_iterable(map(lambda torrent: self.filter_torrent(torrent), torrents))))
 
     def start(self):
         try:
-            login_status = self.execute_login()
+            login_status = self.request_login()
         except Exception as loginException:
             login_status = False
             logging.error(f'Unexpected exception was throw during attempting login: {repr(loginException)}')
 
         while login_status:
             try:
-                self.do_once_banip()
+                self.collect_and_ban_ip()
             except Exception as banIPException:
                 logging.error(f'Unexpected exception was throw during attempting ban IP: {repr(banIPException)}')
 
                 try:
                     # Re-login, script may stop working after long time execute
-                    login_status = self.execute_login()
+                    login_status = self.request_login()
                     
                     if not login_status:
                         logging.warning('Failed to re-login, please check your login credentials.')
