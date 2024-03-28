@@ -2,7 +2,7 @@ FROM python:3.9.19-alpine3.19
 
 LABEL MAINTAINER="https://github.com/Ghost-chu/qb-ban-vampire-docker"
 
-ENV API_PREFIX="http://127.0.0.1:8080"
+ENV API_PREFIX="http://localhost:8080"
 ENV API_VERIFY_HTTPS_CERT="true"
 ENV API_USERNAME=""
 ENV API_PASSWORD=""

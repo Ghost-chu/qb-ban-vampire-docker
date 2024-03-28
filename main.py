@@ -78,7 +78,7 @@ def str2bool(v):
 
 class VampireHunter:
     # WebUI 地址
-    API_PREFIX = os.getenv('API_PREFIX', 'http://127.0.0.1:8080')
+    API_PREFIX = os.getenv('API_PREFIX', 'http://localhost:8080')
     # 是否验证Https证书有效性，如果你使用HTTPS自签名证书或通过局域网IP而非证书相关联的域名访问，请关闭此选项
     API_VERIFY_HTTPS_CERT = str2bool(os.getenv('API_VERIFY_HTTPS_CERT', 'true'))
     API_FULL = f'{API_PREFIX}/api/v2'
@@ -139,11 +139,22 @@ class VampireHunter:
             auth=self.get_basicauth()
         ).json()
 
-    def get_peers(self, mission_hash):
+    def get_peers(self, torrentHash):
         return self.SESSION.get(
-            f'{self.API_FULL}/sync/torrentPeers?hash={mission_hash}',
+            f'{self.API_FULL}/sync/torrentPeers?hash={torrentHash}',
             auth=self.get_basicauth()
         ).json()
+    
+    def convert_size(self, value):
+        size = 1024.0
+        units = ["B", "KB", "MB", "GB", "TB"]
+        
+        for index in range(len(units)):
+            if (value / size) < 1:
+                return "%.2f%s" % (value, units[index])
+            value = value / size
+
+        return 'Unknown'
 
     def sumbit_banned_ips(self):
         ips = ''
@@ -167,65 +178,59 @@ class VampireHunter:
             }
         )
 
-    def do_once_banip(self):
-        def parse_ip(ip_port):
-            port_path = ip_port.rfind(':')
+    def check_peer(self, info):
+        target_client = False
 
-            if ip_port.startswith('::ffff:'):
-                return ip_port[7:port_path]
-            else:
-                return ip_port[:port_path]
-
-        def check_peer(info):
-            target_client = False
-
-            # 屏蔽迅雷
-            if self.BAN_XUNLEI and REGX_XUNLEI.search(info['client']):
+        # 屏蔽迅雷
+        if self.BAN_XUNLEI and REGX_XUNLEI.search(info['client']):
+            target_client = True
+        else:
+            # 屏蔽 P2P 播放器
+            if self.BAN_PLAYER and REGX_PLAYER.search(info['client']):
                 target_client = True
             else:
-                # 屏蔽 P2P 播放器
-                if self.BAN_PLAYER and REGX_PLAYER.search(info['client']):
+                # 屏蔽野鸡客户端
+                if self.BAN_OTHERS and REGX_OTHERS.search(info['client']):
                     target_client = True
-                else:
-                    # 屏蔽野鸡客户端
-                    if self.BAN_OTHERS and REGX_OTHERS.search(info['client']):
-                        target_client = True
 
-            # 不检查分享率及下载进度直接屏蔽
-            if self.BAN_WITHOUT_RATIO_CHECK:
-                return target_client
+        # 不检查分享率及下载进度直接屏蔽
+        if self.BAN_WITHOUT_RATIO_CHECK:
+            return target_client
+        
+        # 分享率及下载进度异常
+        if target_client:
+            logging.info(f'Detected target client: {info['client']}, progress: {"%.1f%%" % (info['progress'] * 100)}, downloaded: {self.convert_size(info['downloaded'])}, uploaded: {self.convert_size(info['uploaded'])}')
+
+            # 分享率为0且下载量为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
+            if info['progress'] == 0 and info['downloaded'] == 0 and info['uploaded'] > 1048576:
+                return True
             
-            # 分享率及下载进度异常
-            if target_client:
-                logging.info(f'Detected target client: {info["client"]}, progress: {info["progress"]}, uploaded: {info["uploaded"]}')
+        return False
 
-                # 分享率为0且上传量大于1MB，确定此客户端为吸血BT客户端，予以屏蔽
-                if info['progress'] == 0 and info['uploaded'] > 1048576:
-                    return True
+    def filter_torrent(self, torrent, now):
+        torrentPeers = self.get_peers(torrent['hash'])
+        torrentPeersInfo = torrentPeers['peers'].items()
+
+        logging.info(f'Torrent: {torrent['name']}, Peers: {len(torrentPeersInfo)}, Hash: {torrent['hash']}')
+
+        for ip_port, info in torrentPeersInfo:
+            if self.check_peer(info):
+                self.BANNED_IPS[info['ip']] = {
+                    'ban_time': now,
+                    'expired_on': now + self.DEFAULT_BAN_SECONDS
+                }
                 
-            return False
+                logging.warning(f'IP Banned: {ip_port}, UA: {info['client']}, Country: {info['country']}')
 
-        def filter_ip(peers, now):
-            for ip_port, info in peers['peers'].items():
-                if check_peer(info):
-                    ip = parse_ip(ip_port)
-                    self.BANNED_IPS[ip] = {
-                        'ban_time': now,
-                        'expired_on': now + self.DEFAULT_BAN_SECONDS
-                    }
-                    
-                    logging.warning(f'IP Banned: {ip}, UA: {info["client"]}')
-
+    def do_once_banip(self):
         torrents = self.get_torrents()
         nowSeconds = time.time()
         nowDescription = datetime.now(pytz.timezone(self.DEFAULT_TIMEZONE)).strftime('%Y-%m-%dT%H:%M:%S%z')
 
-        logging.info(f'Now: {nowDescription}, all torrents: {len(torrents)}')
+        logging.info(f'Date: {nowDescription}, torrents found: {len(torrents)}')
 
         for torrent in torrents:
-            peers = self.get_peers(torrent['hash'])
-            # logging.info(f'Peers: {len(peers)}\tTorrent: {torrent["name"]}')
-            filter_ip(peers, nowSeconds)
+            self.filter_torrent(torrent, nowSeconds)
 
         self.sumbit_banned_ips()
 
