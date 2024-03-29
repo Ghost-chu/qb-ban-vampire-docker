@@ -102,7 +102,7 @@ class VampireHunter:
     # 默认时区
     DEFAULT_TIMEZONE = os.getenv('DEFAULT_TIMEZONE', 'Asia/Shanghai')
     # 日志级别
-    DEFAULT_LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    DEFAULT_LOG_LEVEL = os.getenv('DEFAULT_LOG_LEVEL', 'INFO')
     # 屏蔽时间
     DEFAULT_BAN_SECONDS = int(os.getenv('DEFAULT_BAN_SECONDS', 3600))
     # 屏蔽开关
