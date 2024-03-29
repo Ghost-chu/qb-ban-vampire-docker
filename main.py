@@ -117,13 +117,13 @@ class VampireHunter:
     
     def __init__(self):
         if self.DEFAULT_TIMEZONE not in pytz.all_timezones:
-            raise argparse.ArgumentError(self.DEFAULT_TIMEZONE, 'Invalid timezone')
+            raise argparse.ArgumentTypeError('Invalid timezone')
         
         if self.DEFAULT_LOG_LEVEL not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
-            raise argparse.ArgumentError(self.DEFAULT_LOG_LEVEL, 'Invalid log level')
+            raise argparse.ArgumentTypeError('Invalid log level')
         
         if not validators.url(self.API_BASE_ENDPOINT):
-            raise argparse.ArgumentError(self.API_BASE_ENDPOINT, 'Invalid API base endpoint')
+            raise argparse.ArgumentTypeError('Invalid API base endpoint')
 
         logging.basicConfig(level=self.DEFAULT_LOG_LEVEL)
 
