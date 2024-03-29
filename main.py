@@ -17,7 +17,7 @@ from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-REGX_XUNLEI = re.compile('''
+REGX_XUNLEI = re.compile(r'''
 ^(?:
     7\.|sd|xl|-XL|xun|
     unknown\s(?:
@@ -29,7 +29,7 @@ REGX_XUNLEI = re.compile('''
     )
 )
 ''', re.I | re.X)
-REGX_PLAYER = re.compile('''
+REGX_PLAYER = re.compile(r'''
 ^(?:
     dan               | # DanDan (DL)
     stellarplayer     | # SP
@@ -51,7 +51,7 @@ REGX_PLAYER = re.compile('''
     )
 )
 ''', re.X)
-REGX_OTHERS = re.compile('''
+REGX_OTHERS = re.compile(r'''
 ^(?:
     caca              | # Cacaoweb
     [Ff]lash[Gg]      | # FlashGet (FG)
