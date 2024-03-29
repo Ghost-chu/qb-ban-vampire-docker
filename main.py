@@ -14,6 +14,8 @@ import urllib3
 import validators
 from itertools import chain
 from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 REGX_XUNLEI = re.compile('''
 ^(?:
@@ -77,7 +79,6 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
-
 class VampireHunter:
     # WebUI 地址
     API_BASE_ENDPOINT = f"{os.getenv('API_PREFIX', 'http://localhost:8080')}/api/v2"
@@ -92,6 +93,12 @@ class VampireHunter:
     BASICAUTH_PASSWORD = os.getenv('BASICAUTH_PASSWORD', '')
     # 检测间隔
     INTERVAL_SECONDS = int(os.getenv('INTERVAL_SECONDS', 5))
+    # HTTP 请求重试次数
+    HTTP_REQUEST_RETRIES = int(os.getenv('HTTP_REQUEST_RETRIES', 3))
+    # HTTP 请求超时时间
+    HTTP_REQUEST_READ_TIMEOUT = int(os.getenv('HTTP_REQUEST_READ_TIMEOUT', 30))
+    # HTTP 请求连接超时时间
+    HTTP_REQUEST_CONNECTION_TIMEOUT = int(os.getenv('HTTP_REQUEST_CONNECTION_TIMEOUT', 10))
     # 默认时区
     DEFAULT_TIMEZONE = os.getenv('DEFAULT_TIMEZONE', 'Asia/Shanghai')
     # 日志级别
@@ -106,14 +113,8 @@ class VampireHunter:
     BAN_WITHOUT_RATIO_CHECK = str2bool(os.getenv('BAN_WITHOUT_RATIO_CHECK', 'true'))
 
     BANNED_IPS_LIST = {}
-
     SESSION = requests.Session()
-    SESSION.verify = API_VERIFY_HTTPS_CERT
-
-    # 禁用 HTTPS 证书验证警告
-    if not API_VERIFY_HTTPS_CERT:
-        urllib3.disable_warnings()
-        logging.debug('HTTPS certificate verification warnings has been disabled')
+    SESSION_HTTP_ADAPTOR = HTTPAdapter(max_retries=Retry(total=HTTP_REQUEST_RETRIES, allowed_methods=frozenset(['GET', 'POST']), status_forcelist=[500, 502, 503, 504]))
     
     def __init__(self):
         if self.DEFAULT_TIMEZONE not in pytz.all_timezones:
@@ -121,9 +122,18 @@ class VampireHunter:
         
         if self.DEFAULT_LOG_LEVEL not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             raise argparse.ArgumentTypeError('Invalid log level')
-        
-        if not validators.url(self.API_BASE_ENDPOINT):
+
+        if not validators.url(self.API_BASE_ENDPOINT, may_have_port=True, simple_host=True):
             raise argparse.ArgumentTypeError('Invalid API base endpoint')
+
+        self.SESSION.verify = self.API_VERIFY_HTTPS_CERT
+        self.SESSION.mount('http://', self.SESSION_HTTP_ADAPTOR)
+        self.SESSION.mount('https://', self.SESSION_HTTP_ADAPTOR)
+
+        # 禁用 HTTPS 证书验证警告
+        if not self.SESSION.verify:
+            urllib3.disable_warnings()
+            logging.debug('HTTPS certificate verification warnings has been disabled')
 
         logging.basicConfig(level=self.DEFAULT_LOG_LEVEL)
 
@@ -134,6 +144,7 @@ class VampireHunter:
 
         login_response = self.SESSION.post(
             loginAPIEndpoint,
+            timeout=(self.HTTP_REQUEST_CONNECTION_TIMEOUT, self.HTTP_REQUEST_READ_TIMEOUT),
             data={
                 'username': self.API_USERNAME,
                 'password': self.API_PASSWORD
@@ -158,6 +169,7 @@ class VampireHunter:
 
         torrents_Response = self.SESSION.get(
             torrentsAPIEndpoint,
+            timeout=(self.HTTP_REQUEST_CONNECTION_TIMEOUT, self.HTTP_REQUEST_READ_TIMEOUT),
             auth=self.get_basicauth()
         )
 
@@ -172,6 +184,7 @@ class VampireHunter:
 
         peers_Response = self.SESSION.get(
             peersAPIEndpoint,
+            timeout=(self.HTTP_REQUEST_CONNECTION_TIMEOUT, self.HTTP_REQUEST_READ_TIMEOUT),
             auth=self.get_basicauth()
         )
 
@@ -213,6 +226,7 @@ class VampireHunter:
         self.SESSION.post(
             f'{self.API_BASE_ENDPOINT}/app/setPreferences',
             auth=self.get_basicauth(),
+            timeout=(self.HTTP_REQUEST_CONNECTION_TIMEOUT, self.HTTP_REQUEST_READ_TIMEOUT),
             data={
                 'json': json.dumps({
                     'banned_IPs': '\n'.join(map(lambda ip: ip.strip('[]'), self.BANNED_IPS_LIST.keys()))

@@ -20,6 +20,9 @@ docker pull ghostchu/qb-ban-vampire-docker:v1.1.2
 * BASICAUTH_USERNAME 输入弹窗中要输入的用户名
 * BASICAUTH_PASSWORD 输入弹窗中要输入的密码
 * INTERVAL_SECONDS 检测间隔，太长封禁Peer会有较大延迟，太小会导致 QB WEBUI 无响应，推荐值为 15
+* HTTP_REQUEST_RETRIES API超时重试次数限制
+* HTTP_REQUEST_READ_TIMEOUT API响应超时时间，单位：秒。如果QB响应较慢，则增大此值。默认为 30 秒
+* HTTP_REQUEST_CONNECTION_TIMEOUT API连接超时时间，单位：秒。如果网络拥塞或延迟较大，则增大此值。默认为 10 秒
 * DEFAULT_TIMEZONE 显示时间格式化的时区，默认中国标准时间 Asia/Shanghai
 * DEFAULT_LOG_LEVEL 指定日志输出级别，级别越小输出日志量越多 CRITICAL > ERROR > WARNING > INFO > DEBUG
 * DEFAULT_BAN_SECONDS 封禁时间长度，默认 3600，单位为秒
