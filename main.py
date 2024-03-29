@@ -126,6 +126,21 @@ class VampireHunter:
         if not validators.url(self.API_BASE_ENDPOINT, may_have_port=True, simple_host=True):
             raise argparse.ArgumentTypeError('Invalid API base endpoint')
 
+        match self.DEFAULT_LOG_LEVEL:
+            case 'DEBUG':
+                logging.basicConfig(level=logging.DEBUG)
+            case 'INFO':
+                logging.basicConfig(level=logging.INFO)
+            case 'WARNING':
+                logging.basicConfig(level=logging.WARNING)
+            case 'ERROR':
+                logging.basicConfig(level=logging.ERROR)
+            case 'CRITICAL':
+                logging.basicConfig(level=logging.CRITICAL)
+            case _:
+                logging.basicConfig(level=logging.INFO)
+                logging.warning(f'Invalid log level: {self.DEFAULT_LOG_LEVEL}, using INFO as the default level')
+
         self.SESSION.verify = self.API_VERIFY_HTTPS_CERT
         self.SESSION.mount('http://', self.SESSION_HTTP_ADAPTOR)
         self.SESSION.mount('https://', self.SESSION_HTTP_ADAPTOR)
@@ -134,8 +149,6 @@ class VampireHunter:
         if not self.SESSION.verify:
             urllib3.disable_warnings()
             logging.debug('HTTPS certificate verification warnings has been disabled')
-
-        logging.basicConfig(level=self.DEFAULT_LOG_LEVEL)
 
     def request_login(self):
         loginAPIEndpoint = f'{self.API_BASE_ENDPOINT}/auth/login'
