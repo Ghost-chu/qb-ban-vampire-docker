@@ -1,3 +1,10 @@
+此项目已不再更新，请使用替代品：
+
+* https://github.com/PBH-BTN/PeerBanHelper
+* https://github.com/Simple-Tracker/qBittorrent-ClientBlocker
+
+---
+
 # qb-ban-vampire-docker
 
 本项目是 https://gist.github.com/Sg4Dylan/cb2c1d0ddb4559c2c46511de31ca3251 的 Docker 封装，并同时修复了当 WebAPI 超时会导致进程退出的问题。
